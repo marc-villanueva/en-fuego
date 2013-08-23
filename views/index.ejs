@@ -1,0 +1,6 @@
+<h1>Rooms</h1>
+
+<% for(var i = 0; i < rooms.length; i++) { %>
+<div><a href="/rooms/<%= rooms[i].id %>"><%= rooms[i].name %></a> - <%= rooms[i].topic %></div>
+
+<% } %>

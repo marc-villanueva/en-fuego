@@ -1,0 +1,15 @@
+{
+  "name": "en-fuego",
+  "version": "0.0.1",
+  "dependencies": {
+    "express": "3.3.x",
+    "socket.io": "0.9.x",
+    "campfire": "git://github.com/marc-villanueva/node-campfire.git",
+    "ejs": "0.8.x"
+  },
+  "engines": {
+    "node": "0.10.x",
+    "npm": "1.2.x"
+  }
+}
+

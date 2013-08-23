@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>En Fuego</title>
+  <link rel="stylesheet" href="/css/room.css"/>
+</head>
+
+<body>
+
+<div id="users"></div>
+<div id="messages"></div>
+
+<div id="form">
+  <input type="text" id="postMessage"/><button type="button">Post</button>
+</div>
+
+<script type="text/javascript" src="/js/jquery.js"></script>
+<script type="text/javascript" src="/socket.io/socket.io.js"></script>
+<script>
+  //-----------------------------------
+  //
+  //  Distributes incoming messages
+  //  from the socket.io connection.
+  //
+  //  Interested parties can subscribe
+  //  to the different message types using
+  //  the on(event,callback) method.
+  //
+  //-----------------------------------
+  function MessageQueue(roomId) {
+    this._roomId = roomId;
+    this._subscribers = {};
+    this._chatMessages = ["TextMessage", "PasteMessage"];
+    this._userActivityMessages = ["EnterMessage", "LeaveMessage", "KickMessage"];
+  }
+  MessageQueue.prototype = {
+    on: function(eventName, callback) {
+      if(eventName in this._subscribers) {
+        this._subscribers[eventName].push(callback);
+      } else {
+        this._subscribers[eventName] = [];
+        this._subscribers[eventName].push(callback);
+      }
+    },
+    run: function(host) {
+      var socket = io.connect(host);
+      var self = this;
+      socket.on('new-message', function (data) {
+        self.distribute(data);
+      });
+    },
+    distribute: function(message) {
+      var type = message.type;
+
+      if($.inArray(type, this._chatMessages) != -1) {
+        type = MessageQueue.CHAT_MESSAGE;
+      } else if($.inArray(type, this._userActivityMessages) != -1) {
+        type = MessageQueue.USER_ACTIVITY_MESSAGE;
+      }
+
+      $(this._subscribers[type]).each(function() {
+        this(message);
+      })
+    },
+    init: function() {
+      var dfd = $.Deferred();
+      var ajax = $.get('/api/rooms/' + this._roomId + '/recent?limit=100');
+      var self = this;
+      ajax.done(function(data) {
+        $(data).each(function() {
+          self.distribute(this);
+        })
+        dfd.resolve();
+      });
+
+      return dfd;
+    }
+  }
+  MessageQueue.USER_ACTIVITY_MESSAGE = "UserActivityMessage";
+  MessageQueue.CHAT_MESSAGE = "ChatMessage";
+
+  //-----------------------------------
+  //
+  //  Collection of users currently
+  //  present in the room.
+  //
+  //-----------------------------------
+  function Users(roomId) {
+    this._roomId = roomId;
+    this._users = [];
+    this._subscribers = [];
+  }
+  Users.prototype = {
+    fetch: function() {
+      var dfd = $.Deferred();
+
+      var ajax = $.get('/api/rooms/' + this._roomId + '/users');
+      var self = this;
+      ajax.done(function(data) {
+        self._users = [];
+        $(data).each(function() {
+          self._users.push(this);
+        })
+        dfd.resolve();
+        self.notify();
+      })
+      return dfd;
+
+    },
+    find: function(userId) {
+      var user = null;
+      $(this._users).each(function() {
+        if(this.id == userId) {
+          user = this;
+          return;
+        }
+      })
+
+      return user;
+    },
+    register: function(subscriber) {
+      this._subscribers.push(subscriber);
+    },
+    notify: function() {
+      var self = this;
+      $(this._subscribers).each(function() {
+        this.update(self);
+      })
+    },
+    toArray: function() {
+      return this._users;
+    }
+  }
+
+  //-----------------------------------
+  //
+  //  Manages the display of the current
+  //  users in the room.
+  //
+  //-----------------------------------
+  function UsersDisplay(id) {
+    this._id = '#' + id;
+  }
+  UsersDisplay.prototype = {
+    update: function(users) {
+      var html = "";
+      $(users.toArray()).each(function() {
+        html += '<div><img src="' + this.avatar_url + '"/>' + this.name + '</div>';
+      })
+
+      $(this._id).html(html);
+    }
+  }
+
+  //-----------------------------------
+  //
+  //  Manages the displaying of incoming
+  //  chat messages.
+  //
+  //-----------------------------------
+  function MessagesDisplay(id, users, maxMessages) {
+    this._id = '#' + id;
+    this._users = users;
+    this._maxMessages = maxMessages;
+  }
+  MessagesDisplay.prototype = {
+    addMessage: function(message) {
+      var user = this._users.find(message.userId);
+      var username = message.userId;
+      if(user) {
+        username = user.name
+      }
+      var body = message.body;
+
+      // Checking for links/images to make them clickable
+      if(message.body.substr(0, 7) == "http://") {
+        body = '<a href="' + body + '" target="_blank">' + body + '</a>';
+      }
+
+      // Git commit pasted by Hubot
+      if(body.substr(0, 8) == "Revision") {
+        body = '<pre>' + body + '</pre>';
+      }
+
+      $(this._id).append('<div><span>' + username + '</span> says: <span class="messageText">' + body + '</span></div>');
+
+      var overflow = $(this._id).find('div').size() - this._maxMessages;
+      if(overflow > 0) {
+        $(this._id).find('div').slice(0, overflow).remove();
+      }
+
+
+      $(this._id).scrollTop($(this._id)[0].scrollHeight);
+    }
+  }
+
+  //-----------------------------------
+  //
+  // Handles the message form
+  //
+  //-----------------------------------
+  function PostMessageForm(id, roomId) {
+    this._id = '#' + id;
+    this._roomId = roomId;
+    this._message = $(this._id).find('input');
+    this._button = $(this._id).find('button');
+
+    var self = this;
+    this._button.on('click', function() {
+      self.submit();
+    })
+  }
+  PostMessageForm.prototype = {
+    submit: function() {
+      var message = $(this._message).val();
+      $.post('/api/rooms/' + this._roomId + '/speak', {message: message});
+      $(this._message).val('');
+    }
+  }
+
+  //-----------------------------------
+  var roomId = <%= roomId %>;
+  var users = new Users(roomId);
+  users.register(new UsersDisplay('users', roomId));
+
+  var messagesDisplay = new MessagesDisplay('messages', users, 100);
+
+  var queue = new MessageQueue(roomId);
+
+  new PostMessageForm('form', roomId);
+
+  queue.on(MessageQueue.USER_ACTIVITY_MESSAGE, function() {
+    users.fetch();
+  });
+
+  queue.on(MessageQueue.CHAT_MESSAGE, function(message) {
+    messagesDisplay.addMessage(message)
+  });
+
+  users.fetch().done(function(){
+    queue.init().done(function() {
+      queue.run('http://localhost:5000');
+    })
+  })
+
+  setInterval(function() { users.fetch() }, 60000);
+</script>
+</body>
+</html>

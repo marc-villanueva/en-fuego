@@ -1,0 +1,51 @@
+/* I suck at CSS - evidence below */
+  * {
+    margin: 0;
+    padding: 0;
+  }
+
+  #users {
+    float: left;
+    overflow: scroll;
+    height: 490px;
+  }
+  #messages {
+    float: right;
+    border: solid 1px black;
+    overflow: scroll;
+    height: 450px;
+    width: 600px;
+    padding: 10px;
+  }
+
+  #messages div {
+    margin-bottom: 10px;
+  }
+
+  #messages .messageText {
+    font-weight: bold;
+  }
+
+  #divider {
+    clear: both;
+    padding: 5px;
+  }
+
+  #form {
+    float: right;
+    width: 622px;
+    padding-top: 10px;
+  }
+  #form input {
+    width: 590px;
+  }
+
+  #users img {
+    width: 25px;
+    margin: 10px;
+    vertical-align: middle;
+  }
+
+  #users div {
+    font-size: 14px;
+  }
