@@ -72,15 +72,11 @@ app.get('/rooms/:roomId', function(request, response) {
     var roomId = request.params.roomId;
 
     io.sockets.on('connection', function (socket) {
-      var lastMessageId = null;
-
       client.join(roomId, function(error, room) {
         room.listen(function(message) {
-          if(lastMessageId != message.id) {
-            delete message.campfire;
-            io.sockets.emit('new-message', message);
-            lastMessageId = message.id;
-          }
+          delete message.campfire;
+          io.sockets.emit('new-message', message);
+          lastMessageId = message.id;
         })
       })
     });

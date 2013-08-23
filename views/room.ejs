@@ -162,9 +162,16 @@
     this._id = '#' + id;
     this._users = users;
     this._maxMessages = maxMessages;
+    this._lastMessageId = null;
   }
   MessagesDisplay.prototype = {
     addMessage: function(message) {
+      if(this._lastMessageId == message.id) {
+        return;
+      }
+
+      this._lastMessageId = message.id;
+
       var user = this._users.find(message.userId);
       var username = message.userId;
       if(user) {
